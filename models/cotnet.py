@@ -10,9 +10,6 @@ from .registry import register_model
 from .resnet import ResNet
 from .layers import Shiftlution
 from cupy_layers.aggregation_zeropad import LocalConvolution
-from cupy_layers.aggregation_zeropad_mix import LocalConvolutionMix
-from cupy_layers.aggregation_zeropad_mix_merge import LocalConvolutionMixMerge
-from cupy_layers.aggregation_zeropad_dilate import LocalConvolutionDilate
 from .layers import create_act_layer
 import torch.nn.functional as F
 from torch import einsum
@@ -32,26 +29,13 @@ def _cfg(url='', **kwargs):
     }
 
 default_cfgs = {
-    'trans_basic': _cfg(
+    'cot_basic': _cfg(
         url=''),
-
-    'trans_s': _cfg(
-        url='',
-        input_size=(3, 256, 256), pool_size=(8, 8), crop_pct=0.888, interpolation='bicubic'),
-    'trans_m': _cfg(
-        url='',
-        input_size=(3, 288, 288), pool_size=(9, 9), crop_pct=0.9, interpolation='bicubic'),
-    'trans_l': _cfg(
-        url='',
-        input_size=(3, 320, 320), pool_size=(10, 10), crop_pct=0.909, interpolation='bicubic'),
-    'trans_xl': _cfg(
-        url='',
-        input_size=(3, 416, 416), pool_size=(13, 13), crop_pct=0.928, interpolation='bicubic'),
 }
 
-class TransLayer(nn.Module):
+class CotLayer(nn.Module):
     def __init__(self, dim, kernel_size):
-        super(TransLayer, self).__init__()
+        super(CotLayer, self).__init__()
 
         self.dim = dim
         self.kernel_size = kernel_size
@@ -119,9 +103,9 @@ class TransLayer(nn.Module):
         
         return out.contiguous()
 
-class TransXtLayer(nn.Module):
+class CoXtLayer(nn.Module):
     def __init__(self, dim, kernel_size):
-        super(TransXtLayer, self).__init__()
+        super(CoXtLayer, self).__init__()
 
         self.dim = dim
         self.kernel_size = kernel_size
@@ -217,7 +201,7 @@ class Bottleneck(nn.Module):
         else:
             self.avd = None
         
-        self.conv2 = TransLayer(width, kernel_size=3) if cardinality == 1 else TransXtLayer(width, kernel_size=3)
+        self.conv2 = CotLayer(width, kernel_size=3) if cardinality == 1 else CoXtLayer(width, kernel_size=3)
 
         #self.conv2 = nn.Conv2d(
         #    first_planes, width, kernel_size=3, stride=1 if use_aa else stride,
@@ -279,27 +263,26 @@ class Bottleneck(nn.Module):
 
         return x
 
-def _create_trans_resnet(variant, pretrained=False, **kwargs):
+def _create_cotnet(variant, pretrained=False, **kwargs):
     return build_model_with_cfg(
         ResNet, variant, default_cfg=default_cfgs[variant], pretrained=pretrained, **kwargs)
 
-
 @register_model
-def trans_resnet50(pretrained=False, **kwargs):
+def cotnet50(pretrained=False, **kwargs):
     model_args = dict(block=Bottleneck, layers=[3, 4, 6, 3],  **kwargs)
-    return _create_trans_resnet('trans_basic', pretrained, **model_args)
+    return _create_cotnet('cot_basic', pretrained, **model_args)
 
 @register_model
-def trans_resnext50_4x24d(pretrained=False, **kwargs):
-    model_args = dict(block=Bottleneck, layers=[3, 4, 6, 3], cardinality=4, base_width=24, **kwargs)
-    return _create_trans_resnet('trans_basic', pretrained, **model_args)
+def cotnext50_2x48d(pretrained=False, **kwargs):
+    model_args = dict(block=Bottleneck, layers=[3, 4, 6, 3], cardinality=2, base_width=48, **kwargs)
+    return _create_cotnet('cot_basic', pretrained, **model_args)
 
 @register_model
-def trans_resnet101(pretrained=False, **kwargs):
+def cotnet101(pretrained=False, **kwargs):
     model_args = dict(block=Bottleneck, layers=[3, 4, 23, 3], **kwargs)
-    return _create_trans_resnet('trans_basic', pretrained, **model_args)
+    return _create_cotnet('cot_basic', pretrained, **model_args)
 
 @register_model
-def trans_resnext101_4x24d(pretrained=False, **kwargs):
-    model_args = dict(block=Bottleneck, layers=[3, 4, 23, 3], cardinality=4, base_width=24, **kwargs)
-    return _create_trans_resnet('trans_basic', pretrained, **model_args)
+def cotnext101_2x48d(pretrained=False, **kwargs):
+    model_args = dict(block=Bottleneck, layers=[3, 4, 23, 3], cardinality=2, base_width=48, **kwargs)
+    return _create_cotnet('cot_basic', pretrained, **model_args)

@@ -10,9 +10,6 @@ from .registry import register_model
 from .resnet import ResNet
 from .layers import Shiftlution
 from cupy_layers.aggregation_zeropad import LocalConvolution
-from cupy_layers.aggregation_zeropad_mix import LocalConvolutionMix
-from cupy_layers.aggregation_zeropad_mix_merge import LocalConvolutionMixMerge
-from cupy_layers.aggregation_zeropad_dilate import LocalConvolutionDilate
 from .layers import create_act_layer
 import torch.nn.functional as F
 from torch import einsum
@@ -48,9 +45,9 @@ default_cfgs = {
         input_size=(3, 320, 320), pool_size=(10, 10), crop_pct=0.909, interpolation='bicubic'),
 }
 
-class TransLayer(nn.Module):
+class CoTLayer(nn.Module):
     def __init__(self, dim, kernel_size):
-        super(TransLayer, self).__init__()
+        super(CoTLayer, self).__init__()
 
         self.dim = dim
         self.kernel_size = kernel_size
@@ -118,95 +115,6 @@ class TransLayer(nn.Module):
         
         return out.contiguous()
 
-
-class SEBNModule(nn.Module):
-
-    def __init__(self, channels, reduction=16, act_layer=nn.ReLU, min_channels=8, reduction_channels=None,
-                 gate_layer='sigmoid'):
-        super(SEBNModule, self).__init__()
-        reduction_channels = reduction_channels or max(channels // reduction, min_channels)
-        self.fc1 = nn.Conv2d(channels, reduction_channels, kernel_size=1, bias=True)
-        self.bn1 = nn.BatchNorm2d(reduction_channels)
-        self.act = act_layer(inplace=True)
-        self.fc2 = nn.Conv2d(reduction_channels, channels, kernel_size=1, bias=True)
-        self.gate = create_act_layer(gate_layer)
-
-    def forward(self, x):
-        x_se = x.mean((2, 3), keepdim=True)
-        x_se = self.fc1(x_se)
-        x_se = self.bn1(x_se)
-        x_se = self.act(x_se)
-        x_se = self.fc2(x_se)
-        return x * self.gate(x_se)
-
-class BasicBlock(nn.Module):
-    expansion = 1
-
-    def __init__(self, block_idx, inplanes, planes, stride=1, downsample=None, cardinality=1, base_width=64,
-                 reduce_first=1, dilation=1, first_dilation=None, act_layer=nn.ReLU, norm_layer=nn.BatchNorm2d,
-                 attn_layer=None, aa_layer=None, drop_block=None, drop_path=None, radix=1, avd=False,  avd_first=True, conv_dim={},
-                 c4_dim=-1, c4_idx={}):
-        super(BasicBlock, self).__init__()
-
-        assert cardinality == 1, 'BasicBlock only supports cardinality of 1'
-        assert base_width == 64, 'BasicBlock does not support changing base width'
-        first_planes = planes // reduce_first
-        outplanes = planes * self.expansion
-        first_dilation = first_dilation or dilation
-        use_aa = aa_layer is not None and (stride == 2 or first_dilation != dilation)
-
-        self.conv1 = nn.Conv2d(
-            inplanes, first_planes, kernel_size=3, stride=1 if use_aa else stride, padding=first_dilation,
-            dilation=first_dilation, bias=False)
-        self.bn1 = norm_layer(first_planes)
-        self.act1 = act_layer(inplace=True)
-        self.aa = aa_layer(channels=first_planes, stride=stride) if use_aa else None
-
-        self.conv2 = nn.Conv2d(
-            first_planes, outplanes, kernel_size=3, padding=dilation, dilation=dilation, bias=False)
-        self.bn2 = norm_layer(outplanes)
-
-        self.se = SEBNModule(outplanes, reduction=2, act_layer=act_layer)
-
-        self.act2 = nn.ReLU(inplace=True) #act_layer(inplace=True)
-        self.downsample = downsample
-        self.stride = stride
-        self.dilation = dilation
-        self.drop_block = drop_block
-        self.drop_path = drop_path
-
-    def zero_init_last_bn(self):
-        nn.init.zeros_(self.bn2.weight)
-
-    def forward(self, x):
-        residual = x
-
-        x = self.conv1(x)
-        x = self.bn1(x)
-        if self.drop_block is not None:
-            x = self.drop_block(x)
-        x = self.act1(x)
-        if self.aa is not None:
-            x = self.aa(x)
-
-        x = self.conv2(x)
-        x = self.bn2(x)
-        if self.drop_block is not None:
-            x = self.drop_block(x)
-
-        if self.se is not None:
-            x = self.se(x)
-
-        if self.drop_path is not None:
-            x = self.drop_path(x)
-
-        if self.downsample is not None:
-            residual = self.downsample(residual)
-        x += residual
-        x = self.act2(x)
-
-        return x
-
 class CoTBottleneck(nn.Module):
     expansion = 4
 
@@ -244,7 +152,7 @@ class CoTBottleneck(nn.Module):
                    act_layer(inplace=True)
                 )
         else:
-            self.conv2 = TransLayer(width, kernel_size=3)
+            self.conv2 = CoTLayer(width, kernel_size=3)
             if stride > 1:
                 self.avd = nn.AvgPool2d(3, stride, padding=1) if aa_layer is None else aa_layer(channels=width, stride=stride)
 
@@ -537,113 +445,54 @@ class CoTHybridNet(nn.Module):
         return x
 
 
-def _create_trans_resnet(variant, pretrained=False, **kwargs):
+def _create_se_cotnetd(variant, pretrained=False, **kwargs):
     return build_model_with_cfg(
         CoTHybridNet, variant, default_cfg=default_cfgs[variant], pretrained=pretrained, **kwargs)
 
 @register_model
-def cotnet50_cccl(pretrained=False, **kwargs):
-    model_args = dict(block=CoTBottleneck, layers=[3, 4, 6, 3], 
-    block_args=dict(radix=0, avd=False, avd_first=True, conv_dim={64,128,256}), **kwargs)
-    return _create_trans_resnet('cot_basic', pretrained, **model_args)
-
-@register_model
-def cotnet50_ccll(pretrained=False, **kwargs):
-    model_args = dict(block=CoTBottleneck, layers=[3, 4, 6, 3],  
-    block_args=dict(radix=0, avd=False, avd_first=True, conv_dim={64,128}), **kwargs)
-    return _create_trans_resnet('cot_basic', pretrained, **model_args)
-
-@register_model
-def cotnet50_clll(pretrained=False, **kwargs):
-    model_args = dict(block=CoTBottleneck, layers=[3, 4, 6, 3], 
-    block_args=dict(radix=0, avd=False, avd_first=True, conv_dim={64}), **kwargs)
-    return _create_trans_resnet('cot_basic', pretrained, **model_args)
-
-#@register_model
-#def cotnet50_hybrid_se(pretrained=False, **kwargs):
-#    model_args = dict(block=Bottleneck, layers=[3, 4, 6, 3],  
-#    block_args=dict(radix=1, avd=False, avd_first=True, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,6,1))), **kwargs)
-#    return _create_trans_resnet('cot_basic', pretrained, **model_args)
-
-#@register_model
-#def cotnet50_hybrid_st(pretrained=False, **kwargs):
-#    model_args = dict(block=Bottleneck, layers=[3, 4, 6, 3],  
-#    block_args=dict(radix=2, avd=True, avd_first=True, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,6,1))), **kwargs)
-#    return _create_trans_resnet('cot_basic', pretrained, **model_args)
-
-#@register_model
-#def cotnet101_hybrid_se(pretrained=False, **kwargs):
-#    model_args = dict(block=Bottleneck, layers=[3, 4, 23, 3],  
-#    block_args=dict(radix=1, avd=False, avd_first=True, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,23,1))), **kwargs)
-#    return _create_trans_resnet('cot_basic', pretrained, **model_args)
-
-#@register_model
-#def cotnet101_hybrid_st(pretrained=False, **kwargs):
-#    model_args = dict(block=Bottleneck, layers=[3, 4, 23, 3],  
-#    block_args=dict(radix=2, avd=True, avd_first=True, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,23,1))), **kwargs)
-#    return _create_trans_resnet('cot_basic', pretrained, **model_args)
-
-
-@register_model
-def cotnet50_hybrid_se(pretrained=False, **kwargs):
+def se_cotnetd_50(pretrained=False, **kwargs):
     model_args = dict(block=CoTBottleneck, layers=[3, 4, 6, 3],  
     act_layer=get_act_layer('swish'),
     stem_type='deep', stem_width=32, avg_down=True, base_width=64, cardinality=1, aa_layer=None, #BlurPool2d
     block_args=dict(radix=1, avd=False, avd_first=True, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,6,2))), **kwargs)
-    return _create_trans_resnet('cot_basic', pretrained, **model_args)
+    return _create_se_cotnetd('cot_basic', pretrained, **model_args)
 
 @register_model
-def cotnet101_hybrid_se(pretrained=False, **kwargs):
+def se_cotnetd_101(pretrained=False, **kwargs):
     model_args = dict(block=CoTBottleneck, layers=[3, 4, 23, 3],  
     act_layer=get_act_layer('swish'),
     stem_type='deep', stem_width=64, avg_down=True, base_width=64, cardinality=1, aa_layer=None,  #BlurPool2d
     block_args=dict(radix=1, avd=False, avd_first=True, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,23,2))), **kwargs)
-    return _create_trans_resnet('cot_basic', pretrained, **model_args)
+    return _create_se_cotnetd('cot_basic', pretrained, **model_args)
 
 @register_model
-def cotnet152_hybrid_se(pretrained=False, **kwargs):
+def se_cotnetd_152(pretrained=False, **kwargs):
     model_args = dict(block=CoTBottleneck, layers=[3, 8, 36, 3],  
     act_layer=get_act_layer('swish'),
     stem_type='deep', stem_width=64, avg_down=True, base_width=64, cardinality=1, aa_layer=BlurPool2d,
     block_args=dict(radix=1, avd=True, avd_first=False, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,36,2))), **kwargs)
-    return _create_trans_resnet('cot_s', pretrained, **model_args)
+    return _create_se_cotnetd('cot_s', pretrained, **model_args)
 
 @register_model
-def cotnet152_hybrid_se_L(pretrained=False, **kwargs):
+def se_cotnetd_152_L(pretrained=False, **kwargs):
     model_args = dict(block=CoTBottleneck, layers=[3, 8, 36, 3],  
     act_layer=get_act_layer('swish'),
     stem_type='deep', stem_width=64, avg_down=True, base_width=64, cardinality=1, aa_layer=BlurPool2d,
     block_args=dict(radix=1, avd=True, avd_first=False, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,36,2))), **kwargs)
-    return _create_trans_resnet('cot_l', pretrained, **model_args)
+    return _create_se_cotnetd('cot_l', pretrained, **model_args)
 
 @register_model
-def cotnet200_hybrid_se(pretrained=False, **kwargs):
+def se_cotnetd_200(pretrained=False, **kwargs):
     model_args = dict(block=CoTBottleneck, layers=[3, 24, 36, 3],  
     act_layer=get_act_layer('swish'),
     stem_type='deep', stem_width=64, avg_down=True, base_width=64, cardinality=1, aa_layer=BlurPool2d,
     block_args=dict(radix=1, avd=True, avd_first=False, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,36,2))), **kwargs)
-    return _create_trans_resnet('cot_s', pretrained, **model_args)
+    return _create_se_cotnetd('cot_s', pretrained, **model_args)
 
 @register_model
-def cotnet270_hybrid_se(pretrained=False, **kwargs):
+def se_cotnetd_270(pretrained=False, **kwargs):
     model_args = dict(block=CoTBottleneck, layers=[4, 29, 53, 4],  
     act_layer=get_act_layer('swish'),
     stem_type='deep', stem_width=64, avg_down=True, base_width=64, cardinality=1, aa_layer=BlurPool2d,
     block_args=dict(radix=1, avd=True, avd_first=False, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,53,2))), **kwargs)
-    return _create_trans_resnet('cot_s', pretrained, **model_args)
-
-@register_model
-def cotnet350_hybrid_se(pretrained=False, **kwargs):
-    model_args = dict(block=CoTBottleneck, layers=[4, 36, 72, 4],  
-    act_layer=get_act_layer('swish'),
-    stem_type='deep', stem_width=64, avg_down=True, base_width=64, cardinality=1, aa_layer=BlurPool2d,
-    block_args=dict(radix=1, avd=True, avd_first=False, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,72,2))), **kwargs)
-    return _create_trans_resnet('cot_m', pretrained, **model_args)
-
-@register_model
-def cotnet420_hybrid_se(pretrained=False, **kwargs):
-    model_args = dict(block=CoTBottleneck, layers=[4, 44, 87, 4],  
-    act_layer=get_act_layer('swish'),
-    stem_type='deep', stem_width=64, avg_down=True, base_width=64, cardinality=1, aa_layer=BlurPool2d,
-    block_args=dict(radix=1, avd=True, avd_first=False, conv_dim={64,128}, c4_dim=256, c4_idx=set(range(0,87,2))), **kwargs)
-    return _create_trans_resnet('cot_m', pretrained, **model_args)
+    return _create_se_cotnetd('cot_s', pretrained, **model_args)

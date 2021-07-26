@@ -1,0 +1,88 @@
+seed: 1.0
+amp: False
+
+data_loader:
+  data_path: '/export/dataset/imagenet'
+  batch_size: 56
+  vbatch_size: 128
+  workers: 6
+  pin_mem: False
+  prefetcher: True
+  use_multi_epochs_loader: False
+
+model:
+  name: 'cotnet101'
+  pretrained: False
+  initial_checkpoint: ''
+  resume: ''
+  no_resume_opt: False
+  num_classes: 1000
+  gp: 'avg'
+  drop: 0.25
+  drop_path: 0.1 # default None
+  drop_block: 0.0 # default None
+  model_ema: True
+  model_ema_force_cpu: False
+  model_ema_decay: 0.9999
+
+BN:
+  bn_tf: False
+  bn_momentum: -1.0 # default None
+  bn_eps: -1.0 # default None
+  sync_bn: False
+  dist_bn: 'reduce'
+  split_bn: False
+
+augmentation:
+  no_aug: False
+  scale: [0.08, 1.0]
+  ratio: [0.75, 1.333333333333]
+  hflip: 0.5
+  vflip: 0.0
+  interpolation: ''
+  color_jitter: 0.4
+  aa: 'rand-m15-mstd0.5-n2' # default None
+  aug_splits: 0
+  reprob: 0.0
+  remode: 'pixel'
+  recount: 3
+  resplit: False
+  mixup: 0.8
+  mixup_off_epoch: 0
+  cutmix: 1.0
+  mixup_prob: 1.0
+  mixup_switch_prob: 0.5
+  mixup_mode: 'batch'
+  train_interpolation: 'bicubic'
+  tta: 0
+
+loss:
+  jsd: False
+  smoothing: 0.1
+
+solver:
+  opt: 'sgd'
+  opt_eps: 1e-8
+  momentum: 0.9
+  weight_decay: 0.00006
+  sched: 'cosine'
+  lr: 0.175
+  lr_noise: [] # default None
+  lr_noise_pct: 0.67
+  lr_noise_std: 1.0
+  lr_cycle_mul: 1.0
+  lr_cycle_limit: 1
+  warmup_lr: 0.0001
+  min_lr: 1e-5
+  epochs: 350
+  start_epoch: -1 # default None
+  decay_epochs: 30
+  warmup_epochs: 5
+  cooldown_epochs: 0
+  patience_epochs: 10
+  decay_rate: 0.1
+  log_interval: 100
+  recovery_interval: 10
+
+eval:
+  eval_metric: 'top1'
