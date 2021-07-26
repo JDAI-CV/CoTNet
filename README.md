@@ -7,6 +7,9 @@ CoT is a unified self-attention building block, and acts as an alternative to st
   <img src="images/framework.jpg" width="800"/>
 </p>
 
+# 10/5/2021: CVPR 2021 Open World Image Classification Challenge
+**Rank 1** in [Open World Image Classification Challenge](https://eval.ai/web/challenges/challenge-page/1041/leaderboard/2695) @ CVPR 2021. (Team name: VARMS)
+
 
 # Usage
 The code is mainly based on [timm](https://github.com/rwightman/pytorch-image-models).
