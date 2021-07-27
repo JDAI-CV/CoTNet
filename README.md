@@ -39,6 +39,18 @@ CoTNet models consistently obtain better top-1 accuracy with less inference time
   <img src="images/inference_time.jpg" width="800"/>
 </p>
 
+## Results on ImageNet
+| name | resolution | #params | FLOPs | Top-1 Acc. | Top-5 Acc. | model |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | 
+| CoTNet-50 | 224 | 22.2M | 3.3 | 81.3 | 95.6 | [GoogleDrive](https://drive.google.com/file/d/1SR5ezIu7LN943zHaUh4mC0ehxBVMqtfv/view?usp=sharing) |
+| CoTNeXt-50 | 224 | 30.1M | 4.3 | 82.1 | 95.9 | [GoogleDrive](https://drive.google.com/file/d/1j6b5D3xcZ5L_bHiQV0WfqyOieqZLVOCv/view?usp=sharing) |
+| SE-CoTNetD-50 | 224 | 23.1M | 4.1 | 81.6 | 95.8 | [GoogleDrive](https://drive.google.com/file/d/1D2b5fr3lxpBpiFcCYBKngmmSgfVHt_56/view?usp=sharing) |
+| CoTNet-101 | 224 | 38.3M | 6.1 | 82.8 | 96.2 | [GoogleDrive](https://drive.google.com/file/d/11jExbPEg4Eq5PApisZyE5k-1CbRYnsQb/view?usp=sharing) |
+| CoTNeXt-101 | 224 | 53.4M | 8.2 | 83.2 | 96.4 | [GoogleDrive](https://drive.google.com/file/d/1des5wgkBDUscQAs8IYOmKCKKUA46QLfJ/view?usp=sharing) |
+| SE-CoTNetD-101 | 224 | 40.9M | 8.5 | 83.2 | 96.5 | [GoogleDrive](https://drive.google.com/file/d/1PWIltQYpYZiDrpfZORRQzGzQeXVd2b2f/view?usp=sharing) |
+| SE-CoTNetD-152 | 224 | 55.8M | 17.0 | 84.0 | 97.0 | [GoogleDrive](https://drive.google.com/file/d/1MkMx0a8an3ikt6LZwClIOyabBnMfR91v/view?usp=sharing) |
+| SE-CoTNetD-152 | 320 | 55.8M | 26.5 | 84.6 | 97.1 | [GoogleDrive](https://drive.google.com/file/d/1E43T2jS37gR07p_FVWnjJNkMWeYMXgX9/view?usp=sharing) |
+
 ## Citing Contextual Transformer Networks
 ```
 @article{cotnet,
