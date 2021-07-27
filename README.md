@@ -1,5 +1,5 @@
 # Introduction
-This repository is for [**Contextual Transformer Networks for Visual Recognition**](https://arxiv.org/pdf/2107.12292.pdf). 
+This repository is the official implementation of [**Contextual Transformer Networks for Visual Recognition**](https://arxiv.org/pdf/2107.12292.pdf). 
 
 CoT is a unified self-attention building block, and acts as an alternative to standard convolutions in ConvNet. As a result, it is feasible to replace convolutions with their CoT counterparts for strengthening vision backbones with contextualized self-attention.
 
