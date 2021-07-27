@@ -7,7 +7,7 @@ CoT is a unified self-attention building block, and acts as an alternative to st
   <img src="images/framework.jpg" width="800"/>
 </p>
 
-# 25/3/2021-5/6/2021: CVPR 2021 Open World Image Classification Challenge
+# 2021/3/25-2021/6/5: CVPR 2021 Open World Image Classification Challenge
 **Rank 1** in [Open World Image Classification Challenge](https://eval.ai/web/challenges/challenge-page/1041/leaderboard/2695) @ CVPR 2021. (Team name: VARMS)
 
 
@@ -44,6 +44,7 @@ CoTNet models consistently obtain better top-1 accuracy with less inference time
 @article{cotnet,
   title={Contextual Transformer Networks for Visual Recognition},
   author={Li, Yehao and Yao, Ting and Pan, Yingwei and Mei, Tao},
+  journal={arXiv preprint arXiv:2107.12292},
   year={2021}
 }
 ```
