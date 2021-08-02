@@ -1,6 +1,7 @@
 *.pyc
 .vscode
 __pycache__
-test*
+test.py
+test_bn.py
 speed.*
 experiments/*
