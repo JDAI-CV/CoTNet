@@ -1,1 +1,1 @@
-python3 -m torch.distributed.launch --nproc_per_node=8 train.py --folder ./experiments/cot_experiments/SE-CoTNetD-101_350epoch
+python3 -m torch.distributed.launch --nproc_per_node=8 train.py --folder ./cot_experiments/SE-CoTNetD-101_350epoch

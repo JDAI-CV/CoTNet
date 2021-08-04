@@ -267,7 +267,7 @@ def train_epoch(
                 loss, optimizer, parameters=model.parameters(), create_graph=second_order)
         else:
             loss.backward(create_graph=second_order)
-            if cfg.solver.clip_grad is not None:
+            if cfg.solver.clip_grad is not None and cfg.solver.clip_grad > 0:
                 dispatch_clip_grad(
                     model_parameters(model, exclude_head='agc' in cfg.solver.clip_mode),
                     value=cfg.solver.clip_grad, mode=cfg.solver.clip_mode)
