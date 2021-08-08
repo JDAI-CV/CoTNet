@@ -53,6 +53,9 @@ CoTNet models consistently obtain better top-1 accuracy with less inference time
 
 Access code for Baidu is **cotn**
 
+## CoTNet on downstream tasks
+For **Object Detection and Instance Segmentation**, please see [CoTNet for Object Detection and Instance Segmentation](https://github.com/JDAI-CV/CoTNet-ObjectDetection-InstanceSegmentation).
+
 ## Citing Contextual Transformer Networks
 ```
 @article{cotnet,
